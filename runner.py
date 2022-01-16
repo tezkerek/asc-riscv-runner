@@ -86,7 +86,7 @@ class RiscVRunner:
         operation(instr)
 
     def get_operation_handler(self, instr: int) -> (Callable[Instruction, Any], str):
-        opcode = instr & OPCODE_MASK >> OPCODE_SHIFT
+        opcode = (instr & OPCODE_MASK) >> OPCODE_SHIFT
         funct3 = (instr & FUNCT3_MASK) >> FUNCT3_SHIFT
         funct7 = (instr & FUNCT7_MASK) >> FUNCT7_SHIFT
 

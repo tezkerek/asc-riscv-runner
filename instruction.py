@@ -1,4 +1,4 @@
-from utils import signed_bin_to_dec, pretty_bin
+from utils import signed_bin_to_dec
 
 OPCODE_MASK = 0x7F
 OPCODE_SHIFT = 0
