@@ -29,6 +29,7 @@ def pretty_bin(num: int):
     grouped_bin = " ".join(padded_bin[i : i + 4] for i in range(0, len(padded_bin), 4))
     return grouped_bin
 
+
 def logical_rshift(num: int, shift_amount: int):
     if shift_amount > 0:
         return (num % (1 << 32)) >> shift_amount

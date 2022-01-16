@@ -19,7 +19,7 @@ def run_mc_file(filename: str):
 
                 # Add empty bytes to maintain address alignment
                 if skipped_bytes_count := addr - supposed_next_addr:
-                    program_bytes.extend(b'\x00' * skipped_bytes_count)
+                    program_bytes.extend(b"\x00" * skipped_bytes_count)
 
                 program_bytes.extend(instr)
 

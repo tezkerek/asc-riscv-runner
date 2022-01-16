@@ -22,7 +22,7 @@ class RiscVRunner:
 
             instr = self.fetch_instruction(self.program_counter)
             # Skip gaps
-            if instr != b'\x00' * 4:
+            if instr != b"\x00" * 4:
                 operation, decoded_instr = self.decode_instruction(instr)
                 self.execute_instruction(operation, decoded_instr)
 
@@ -38,25 +38,29 @@ class RiscVRunner:
 
     def fetch_instruction(self, addr: int) -> bytes:
         # Instructions are 32-bit
-        return self.code[addr:addr+4]
+        return self.code[addr : addr + 4]
 
     def fetch_memory(self, addr: int, width: int) -> bytes:
-        return self.code[addr:addr+width]
+        return self.code[addr : addr + width]
 
     def store_memory(self, addr: int, value: bytes):
         width = len(value)
-        self.code[addr:addr+width] = value
+        self.code[addr : addr + width] = value
 
-    def decode_instruction(self, instr: bytes) -> (Callable[Instruction, Any], Instruction):
+    def decode_instruction(
+        self, instr: bytes
+    ) -> (Callable[Instruction, Any], Instruction):
         """
         Returns the operation to execute and the decoded instruction
         """
-        int_instr = int.from_bytes(instr, 'big')
+        int_instr = int.from_bytes(instr, "big")
         operation, format_type = self.get_operation_handler(int_instr)
         decoded_instr = Instruction(int_instr, format_type)
         return operation, decoded_instr
 
-    def execute_instruction(self, operation: Callable[Instruction, Any], instr: Instruction):
+    def execute_instruction(
+        self, operation: Callable[Instruction, Any], instr: Instruction
+    ):
         operation(instr)
 
     def set_register(register: int, value: int):
@@ -139,13 +143,13 @@ class RiscVRunner:
         mem_addr = self.registers[instr.rs1] + offset
         mem_bytes = self.fetch_memory(mem_addr, 4)
         # Is it right to be unsigned?
-        self.registers[instr.rd] = int.from_bytes(mem_bytes, 'big', signed=False)
+        self.registers[instr.rd] = int.from_bytes(mem_bytes, "big", signed=False)
 
     def sw(self, instr: Instruction):
         # Store 4 bytes from rs2 into memory at address rs1 + offset
         offset = instr.imm
         mem_addr = self.registers[instr.rs1] + offset
-        rs2_bytes = self.registers[instr.rs2].to_bytes(4, 'big')
+        rs2_bytes = self.registers[instr.rs2].to_bytes(4, "big")
 
         self.store_memory(mem_addr, rs2_bytes)
 
@@ -174,4 +178,6 @@ class RiscVRunner:
     def srl(self, instr: Instruction):
         # Only consider the lower 5 bits of rs2
         shift_amount = self.registers[instr.rs2] & 0x1F
-        self.registers[instr.rd] = logical_rshift(self.registers[instr.rs1], shift_amount)
+        self.registers[instr.rd] = logical_rshift(
+            self.registers[instr.rs1], shift_amount
+        )
