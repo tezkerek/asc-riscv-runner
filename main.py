@@ -10,14 +10,25 @@ def run_mc_file(filename: str):
         # Skip first line
         f.readline()
 
-        program_instructions = [
-            instr for line in f if (instr := parse_mc_line(line)) is not None
-        ]
+        program_bytes = bytearray()
+        supposed_next_addr = 0
+        for line in f:
+            parsed_tuple = parse_mc_line(line)
+            if parsed_tuple is not None:
+                addr, instr = parsed_tuple
+
+                # Add empty bytes to maintain address alignment
+                if skipped_bytes_count := addr - supposed_next_addr:
+                    program_bytes.extend(b'\x00' * skipped_bytes_count)
+
+                program_bytes.extend(instr)
+
+                supposed_next_addr = addr + len(instr)
 
         # Run the program
         print(f"======== {filename} ========")
 
-        runner = RiscVRunner(program_instructions)
+        runner = RiscVRunner(program_bytes)
         runner.run()
 
         a0 = runner.registers[10]
@@ -32,10 +43,14 @@ def parse_mc_line(line: str):
         # This is not actually used
         address, label = m.groups()
     elif m := mc_instruction_regex.match(line):
-        address, hex_instruction = m.groups()
+        hex_address, hex_instruction = m.groups()
 
-        instr = int(hex_instruction, 16)
-        return int(address, 16), instr
+        instr_bytes = len(hex_instruction) // 2  # One byte is two hex digits
+
+        instr = bytearray.fromhex(hex_instruction)
+        addr = int(hex_address, 16) - 0x80000000
+
+        return addr, instr
 
 
 def main():

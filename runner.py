@@ -1,16 +1,17 @@
-from typing import List, Tuple, Callable
+from typing import List, Tuple, Callable, Any
 from instruction import Instruction, OPCODE_MASK, FUNCT3_MASK, FUNCT7_MASK
 
 
 class RiscVRunner:
     registers = [0] * 32
-    program_counter = 0x80000000  # _start is always at 0x80000000?
-    instructions = {}
+    program_counter = 0x0
+    code = None
     running = False
     jumped = False
 
-    def __init__(self, instr_list: List[Tuple[int, int]]):
-        self.instructions = {addr: instr for addr, instr in instr_list}
+    def __init__(self, code: bytearray):
+        self.code = code
+        # print(*(f"{i} {self.code[i:i+4].hex()}" for i in range(0, 101, 4)), sep='\n')
 
     def run(self):
         self.running = True
@@ -18,27 +19,41 @@ class RiscVRunner:
         while self.running:
             self.registers[0] = 0  # x0 is always 0
 
-            try:
-                instr = self.instructions[self.program_counter]
-                self.handle_instruction(instr)
+            instr = self.fetch_instruction(self.program_counter)
+            # Skip gaps
+            if instr != b'\x00' * 4:
+                operation, decoded_instr = self.decode_instruction(instr)
+                self.execute_instruction(operation, decoded_instr)
 
-                # Stay in place if we just jumped here
-                if not self.jumped:
-                    # Otherwise go to the next address
-                    self.program_counter += 4
-                else:
-                    self.jumped = False
-            except KeyError:
-                # For some reason there are gaps between addresses
-                print(
-                    f"{hex(self.program_counter)} not found. Skipping to next present address."
-                )
-                # Skip until we find a present address
-                while self.program_counter not in self.instructions:
-                    self.program_counter += 4
+            # Stay in place if we just jumped here
+            if not self.jumped:
+                # Otherwise go to the next address
+                self.program_counter += 4
+            else:
+                self.jumped = False
 
     def stop_execution(self):
         self.running = False
+
+    def fetch_instruction(self, addr: int) -> bytes:
+        # Instructions are 32-bit
+        return self.code[addr:addr+4]
+
+    def decode_instruction(self, instr: bytes) -> (Callable[Instruction, Any], Instruction):
+        """
+        Returns the operation to execute and the decoded instruction
+        """
+        int_instr = int.from_bytes(instr, 'big')
+        operation, format_type = self.get_operation_handler(int_instr)
+        decoded_instr = Instruction(int_instr, format_type)
+        return operation, decoded_instr
+
+    def execute_instruction(self, operation: Callable[Instruction, Any], instr: Instruction):
+        operation(instr)
+
+    def set_register(register: int, value: int):
+        if register != 0:
+            self.registers[register] = value
 
     def handle_instruction(self, instr: int):
         operation, format_type = self.get_operation_handler(instr)
@@ -49,7 +64,7 @@ class RiscVRunner:
             print(instruction)
             raise e
 
-    def get_operation_handler(self, instr: int) -> (Callable, str):
+    def get_operation_handler(self, instr: int) -> (Callable[Instruction, Any], str):
         opcode = instr & OPCODE_MASK
         funct3 = (instr & FUNCT3_MASK) >> 12
         funct7 = (instr & FUNCT7_MASK) >> 25
@@ -73,6 +88,8 @@ class RiscVRunner:
                 return self.ori, "I"
         if opcode == 0b0110111:
             return self.lui, "U"
+        if opcode == 0b0010111:
+            return self.auipc, "U"
 
         print(
             f"Instruction not implemented: opcode {opcode:0>7b}, funct3 {funct3:0>3b}, funct7 {funct7:0>7b}."
@@ -113,3 +130,9 @@ class RiscVRunner:
         # imm goes in the upper 20 bits of rd
         # Bottom 12 bits are zeroed
         self.registers[instr.rd] = instr.imm << 12
+
+    def auipc(self, instr: Instruction):
+        # imm represents the upper 20 bits of the result
+        # Bottom 12 bits are zeroed
+        # 32-bit imm is added to pc and stored in rd
+        self.registers[instr.rd] = self.program_counter + (instr.imm << 12)
