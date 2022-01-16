@@ -24,6 +24,11 @@ class RiscVRunner:
             # Skip gaps
             if instr != b"\x00" * 4:
                 operation, decoded_instr = self.decode_instruction(instr)
+
+                if operation is None:
+                    self.stop_execution()
+                    break
+
                 self.execute_instruction(operation, decoded_instr)
 
             # Stay in place if we just jumped here
@@ -116,6 +121,7 @@ class RiscVRunner:
         print(
             f"Instruction not implemented: opcode {opcode:0>7b}, funct3 {funct3:0>3b}, funct7 {funct7:0>7b}."
         )
+        return None, None
 
     def jal(self, instr: Instruction):
         self.registers[instr.rd] = self.program_counter + 4
