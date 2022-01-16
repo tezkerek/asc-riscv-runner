@@ -39,6 +39,9 @@ class RiscVRunner:
         # Instructions are 32-bit
         return self.code[addr:addr+4]
 
+    def fetch_memory(self, addr: int, width: int) -> bytes:
+        return self.code[addr:addr+width]
+
     def decode_instruction(self, instr: bytes) -> (Callable[Instruction, Any], Instruction):
         """
         Returns the operation to execute and the decoded instruction
@@ -79,6 +82,9 @@ class RiscVRunner:
                 return self.beq, "B"
             if funct3 == 0b001:
                 return self.bne, "B"
+        if opcode == 0b0000011:
+            if funct3 == 0b010:
+                return self.lw, "I"
         if opcode == 0b0010011:
             if funct3 == 0b000:
                 return self.addi, "I"
@@ -114,6 +120,14 @@ class RiscVRunner:
         if self.registers[instr.rs1] != self.registers[instr.rs2]:
             self.program_counter += offset
             self.jumped = True
+
+    def lw(self, instr: Instruction):
+        # Load 4 bytes from memory into rd at address rs1 + offset
+        offset = instr.imm
+        mem_addr = self.registers[instr.rs1] + offset
+        mem_bytes = self.fetch_memory(mem_addr, 4)
+        # Is it right to be unsigned?
+        self.registers[instr.rd] = int.from_bytes(mem_bytes, 'big', signed=False)
 
     def addi(self, instr: Instruction):
         self.registers[instr.rd] = self.registers[instr.rs1] + instr.imm

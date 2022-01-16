@@ -2,7 +2,7 @@ import re
 from runner import RiscVRunner
 
 mc_label_regex = re.compile(r"^([0-9a-fA-F]{8}) <([a-zA-Z_]+)>:$")
-mc_instruction_regex = re.compile(r"^([0-9a-fA-F]{8}):\t([0-9a-fA-F]{8})$")
+mc_instruction_regex = re.compile(r"^([0-9a-fA-F]{8}):\t([0-9a-fA-F]+)$")
 
 
 def run_mc_file(filename: str):
