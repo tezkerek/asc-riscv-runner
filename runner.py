@@ -3,6 +3,8 @@ from typing import List, Tuple, Callable, Any
 from instruction import Instruction, OPCODE_MASK, FUNCT3_MASK, FUNCT7_MASK
 from utils import logical_rshift
 
+NOOP_INSTR_BYTES = b"\x00" * 4
+
 
 class RiscVRunner:
     registers = [0] * 32
@@ -13,45 +15,51 @@ class RiscVRunner:
 
     def __init__(self, code: bytearray):
         self.code = code
-        # print(*(f"{i} {self.code[i:i+4].hex()}" for i in range(0, 101, 4)), sep='\n')
 
     def run(self):
         self.running = True
 
         while self.running:
-            self.registers[0] = 0  # x0 is always 0
+            instr_bytes = self.fetch_instruction(self.program_counter)
 
-            instr = self.fetch_instruction(self.program_counter)
-            # Skip gaps
-            if instr != b"\x00" * 4:
-                operation, decoded_instr = self.decode_instruction(instr)
+            if instr_bytes == NOOP_INSTR_BYTES:
+                # Skip gaps between instructions
+                pass
+            else:
+                try:
+                    operation, decoded_instr = self.decode_instruction(instr_bytes)
+                    self.execute_instruction(operation, decoded_instr)
+                except NotImplementedError as e:
+                    raise e
 
-                if operation is None:
-                    self.stop_execution()
-                    break
-
-                self.execute_instruction(operation, decoded_instr)
-
-            # Stay in place if we just jumped here
-            if not self.jumped:
+            if self.jumped:
+                # Stay in place if we just jumped here
+                self.jumped = False
+            else:
                 # Otherwise go to the next address
                 self.program_counter += 4
-            else:
-                self.jumped = False
 
     def stop_execution(self):
         self.running = False
 
-    def fetch_instruction(self, addr: int) -> bytes:
-        # Instructions are 32-bit
-        return self.code[addr : addr + 4]
+    def get_register(self, reg: int):
+        return self.registers[reg]
+
+    def set_register(self, register: int, value: int):
+        # x0 is always 0
+        if register != 0:
+            self.registers[register] = value
 
     def fetch_memory(self, addr: int, width: int) -> bytes:
         return self.code[addr : addr + width]
 
-    def store_memory(self, addr: int, value: bytes):
+    def write_memory(self, addr: int, value: bytes):
         width = len(value)
         self.code[addr : addr + width] = value
+
+    def fetch_instruction(self, addr: int) -> bytes:
+        # Instructions are 32-bit
+        return self.code[addr : addr + 4]
 
     def decode_instruction(
         self, instr: bytes
@@ -68,19 +76,6 @@ class RiscVRunner:
         self, operation: Callable[Instruction, Any], instr: Instruction
     ):
         operation(instr)
-
-    def set_register(register: int, value: int):
-        if register != 0:
-            self.registers[register] = value
-
-    def handle_instruction(self, instr: int):
-        operation, format_type = self.get_operation_handler(instr)
-        instruction = Instruction(instr, format_type)
-        try:
-            operation(instruction)
-        except Exception as e:
-            print(instruction)
-            raise e
 
     def get_operation_handler(self, instr: int) -> (Callable[Instruction, Any], str):
         opcode = instr & OPCODE_MASK
@@ -125,82 +120,80 @@ class RiscVRunner:
                 if funct7 == 0b0000001:
                     return self.rem, "R"
 
-        print(
-            f"Instruction not implemented: opcode {opcode:0>7b}, funct3 {funct3:0>3b}, funct7 {funct7:0>7b}."
+        raise NotImplementedError(
+            f"Instruction 0x{instr:0>8x} not implemented: opcode {opcode:0>7b}, funct3 {funct3:0>3b}, funct7 {funct7:0>7b}."
         )
-        return None, None
 
-    def jal(self, instr: Instruction):
-        self.registers[instr.rd] = self.program_counter + 4
-        self.program_counter += instr.imm
+    ### RISC-V INSTRUCTIONS ###
+
+    def jal(self, i: Instruction):
+        self.set_register(i.rd, self.program_counter + 4)
+        self.program_counter += i.imm
         self.jumped = True
 
-    def ecall(self, instr: Instruction):
+    def ecall(self, i: Instruction):
         self.stop_execution()
 
-    def beq(self, instr: Instruction):
-        offset = instr.imm
-        if self.registers[instr.rs1] == self.registers[instr.rs2]:
-            self.program_counter += offset
+    def beq(self, i: Instruction):
+        if self.get_register(i.rs1) == self.get_register(i.rs2):
+            self.program_counter += i.imm
             self.jumped = True
 
-    def bne(self, instr: Instruction):
-        offset = instr.imm
-        if self.registers[instr.rs1] != self.registers[instr.rs2]:
-            self.program_counter += offset
+    def bne(self, i: Instruction):
+        if self.get_register(i.rs1) != self.get_register(i.rs2):
+            self.program_counter += i.imm
             self.jumped = True
 
-    def lw(self, instr: Instruction):
+    def lw(self, i: Instruction):
         # Load 4 bytes from memory into rd at address rs1 + offset
-        offset = instr.imm
-        mem_addr = self.registers[instr.rs1] + offset
+        offset = i.imm
+        mem_addr = self.get_register(i.rs1) + offset
         mem_bytes = self.fetch_memory(mem_addr, 4)
         # Is it right to be unsigned?
-        self.registers[instr.rd] = int.from_bytes(mem_bytes, "big", signed=False)
+        self.set_register(i.rd, int.from_bytes(mem_bytes, "big", signed=False))
 
-    def sw(self, instr: Instruction):
+    def sw(self, i: Instruction):
         # Store 4 bytes from rs2 into memory at address rs1 + offset
-        offset = instr.imm
-        mem_addr = self.registers[instr.rs1] + offset
-        rs2_bytes = self.registers[instr.rs2].to_bytes(4, "big")
+        offset = i.imm
+        mem_addr = self.get_register(i.rs1) + offset
+        rs2_bytes = self.get_register(i.rs2).to_bytes(4, "big")
 
-        self.store_memory(mem_addr, rs2_bytes)
+        self.write_memory(mem_addr, rs2_bytes)
 
-    def addi(self, instr: Instruction):
-        self.registers[instr.rd] = self.registers[instr.rs1] + instr.imm
+    def addi(self, i: Instruction):
+        self.set_register(i.rd, self.get_register(i.rs1) + i.imm)
 
-    def slli(self, instr: Instruction):
+    def slli(self, i: Instruction):
         # shamt is less than 32, so consider only the first 5 bits of the immediate
-        shift_amount = instr.imm & 0x1F
-        self.registers[instr.rd] = self.registers[instr.rs1] << shift_amount
+        shift_amount = i.imm & 0x1F
+        self.set_register(i.rd, self.get_register(i.rs1) << shift_amount)
 
-    def ori(self, instr: Instruction):
-        self.registers[instr.rd] = self.registers[instr.rs1] | instr.imm
+    def ori(self, i: Instruction):
+        self.set_register(i.rd, self.get_register(i.rs1) | i.imm)
 
-    def lui(self, instr: Instruction):
+    def lui(self, i: Instruction):
         # imm goes in the upper 20 bits of rd
         # Bottom 12 bits are zeroed
-        self.registers[instr.rd] = instr.imm << 12
+        self.set_register(i.rd, i.imm << 12)
 
-    def auipc(self, instr: Instruction):
+    def auipc(self, i: Instruction):
         # imm represents the upper 20 bits of the result
         # Bottom 12 bits are zeroed
         # 32-bit imm is added to pc and stored in rd
-        self.registers[instr.rd] = self.program_counter + (instr.imm << 12)
+        self.set_register(i.rd, self.program_counter + (i.imm << 12))
 
-    def xor(self, instr: Instruction):
-        self.registers[instr.rd] = self.registers[instr.rs1] ^ self.registers[instr.rs2]
+    def xor(self, i: Instruction):
+        self.set_register(i.rd, self.get_register(i.rs1) ^ self.get_register(i.rs2))
 
-    def srl(self, instr: Instruction):
+    def srl(self, i: Instruction):
         # Only consider the lower 5 bits of rs2
-        shift_amount = self.registers[instr.rs2] & 0x1F
-        self.registers[instr.rd] = logical_rshift(
-            self.registers[instr.rs1], shift_amount
-        )
+        shift_amount = self.get_register(i.rs2) & 0x1F
+        shifted = logical_rshift(self.get_register(i.rs1), shift_amount)
+        self.set_register(i.rd, shifted)
 
-    def rem(self, instr: Instruction):
-        dividend = self.registers[instr.rs1]
-        divisor = self.registers[instr.rs2]
+    def rem(self, i: Instruction):
+        dividend = self.get_register(i.rs1)
+        divisor = self.get_register(i.rs2)
 
         if dividend == -(2 ** 31) and divisor == -1:
             # Handle signed overflow
@@ -211,4 +204,4 @@ class RiscVRunner:
         else:
             remainder = int(math.fmod(dividend, divisor))
 
-        self.registers[instr.rd] = remainder
+        self.set_register(i.rd, remainder)
