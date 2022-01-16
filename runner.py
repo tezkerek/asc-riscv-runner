@@ -202,7 +202,7 @@ class RiscVRunner:
         dividend = self.registers[instr.rs1]
         divisor = self.registers[instr.rs2]
 
-        if dividend == -2**31 and divisor == -1:
+        if dividend == -(2 ** 31) and divisor == -1:
             # Handle signed overflow
             remainder = 0
         elif divisor == 0:
