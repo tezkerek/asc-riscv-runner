@@ -56,7 +56,6 @@ def parse_mc_line(line: str):
 def main():
     mc_files = [
         "rv_tests/rv32ui-v-addi.mc",
-        "rv_tests/rv32ui-v-addi-fail-test-23.mc",
         "rv_tests/rv32ui-v-beq.mc",
         "rv_tests/rv32ui-v-lw.mc",
         "rv_tests/rv32ui-v-srl.mc",
