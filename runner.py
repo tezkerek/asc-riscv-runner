@@ -114,6 +114,9 @@ class RiscVRunner:
         if opcode == 0b0010111:
             return self.auipc, "U"
         if opcode == 0b0110011:
+            if funct3 == 0b100:
+                if funct7 == 0b0000000:
+                    return self.xor, "R"
             if funct3 == 0b101:
                 if funct7 == 0b0000000:
                     return self.srl, "R"
@@ -180,6 +183,9 @@ class RiscVRunner:
         # Bottom 12 bits are zeroed
         # 32-bit imm is added to pc and stored in rd
         self.registers[instr.rd] = self.program_counter + (instr.imm << 12)
+
+    def xor(self, instr: Instruction):
+        self.registers[instr.rd] = self.registers[instr.rs1] ^ self.registers[instr.rs2]
 
     def srl(self, instr: Instruction):
         # Only consider the lower 5 bits of rs2
