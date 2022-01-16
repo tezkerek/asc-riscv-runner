@@ -1,6 +1,14 @@
 import math
 from typing import List, Tuple, Callable, Any
-from instruction import Instruction, OPCODE_MASK, FUNCT3_MASK, FUNCT7_MASK
+from instruction import (
+    Instruction,
+    OPCODE_MASK,
+    OPCODE_SHIFT,
+    FUNCT3_MASK,
+    FUNCT3_SHIFT,
+    FUNCT7_MASK,
+    FUNCT7_SHIFT,
+)
 from utils import logical_rshift
 
 NOOP_INSTR_BYTES = b"\x00" * 4
@@ -42,7 +50,7 @@ class RiscVRunner:
     def stop_execution(self):
         self.running = False
 
-    def get_register(self, reg: int):
+    def get_register(self, reg: int) -> int:
         return self.registers[reg]
 
     def set_register(self, register: int, value: int):
@@ -78,9 +86,9 @@ class RiscVRunner:
         operation(instr)
 
     def get_operation_handler(self, instr: int) -> (Callable[Instruction, Any], str):
-        opcode = instr & OPCODE_MASK
-        funct3 = (instr & FUNCT3_MASK) >> 12
-        funct7 = (instr & FUNCT7_MASK) >> 25
+        opcode = instr & OPCODE_MASK >> OPCODE_SHIFT
+        funct3 = (instr & FUNCT3_MASK) >> FUNCT3_SHIFT
+        funct7 = (instr & FUNCT7_MASK) >> FUNCT7_SHIFT
 
         if opcode == 0b1101111:
             return self.jal, "J"
@@ -180,10 +188,12 @@ class RiscVRunner:
         # imm represents the upper 20 bits of the result
         # Bottom 12 bits are zeroed
         # 32-bit imm is added to pc and stored in rd
-        self.set_register(i.rd, self.program_counter + (i.imm << 12))
+        offset = i.imm << 12
+        self.set_register(i.rd, self.program_counter + offset)
 
     def xor(self, i: Instruction):
-        self.set_register(i.rd, self.get_register(i.rs1) ^ self.get_register(i.rs2))
+        xored = self.get_register(i.rs1) ^ self.get_register(i.rs2)
+        self.set_register(i.rd, xored)
 
     def srl(self, i: Instruction):
         # Only consider the lower 5 bits of rs2

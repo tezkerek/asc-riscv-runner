@@ -1,13 +1,19 @@
 from utils import signed_bin_to_dec, pretty_bin
 
 OPCODE_MASK = 0x7F
+OPCODE_SHIFT = 0
 RD_MASK = 0xF80
+RD_SHIFT = 7
 FUNCT3_MASK = 0x7000
+FUNCT3_SHIFT = 12
 RS1_MASK = 0xF8000
+RS1_SHIFT = 15
 RS2_MASK = 0x1F00000
+RS2_SHIFT = 20
 FUNCT7_MASK = 0xFE000000
+FUNCT7_SHIFT = 25
 
-# One or two masks for the immediate(s) in every base format
+# Masks and shift amounts for the immediate part(s) in every base format
 IMM_VALS = {
     "I": {
         "mask": 0xFFF00000,
@@ -52,12 +58,6 @@ def decode_S_type_imm(instr: int) -> int:
     return signed_bin_to_dec(unsigned, 12)
 
 
-def decode_U_type_imm(instr: int) -> int:
-    v = IMM_VALS["U"]
-    imm = (instr & v["mask"]) >> v["shift"]
-    return imm
-
-
 def decode_B_type_imm(instr: int) -> int:
     masks = IMM_VALS["B"]["mask"]
     shifts = IMM_VALS["B"]["shift"]
@@ -79,6 +79,12 @@ def decode_B_type_imm(instr: int) -> int:
         - twos_complement_offset
     )
 
+    return imm
+
+
+def decode_U_type_imm(instr: int) -> int:
+    v = IMM_VALS["U"]
+    imm = (instr & v["mask"]) >> v["shift"]
     return imm
 
 
@@ -115,17 +121,17 @@ def decode(instr: int, type: str):
         return decode_I_type_imm(instr)
     if type == "S":
         return decode_S_type_imm(instr)
-    if type == "U":
-        return decode_U_type_imm(instr)
     if type == "B":
         return decode_B_type_imm(instr)
+    if type == "U":
+        return decode_U_type_imm(instr)
     if type == "J":
         return decode_J_type_imm(instr)
 
 
 class Instruction:
     def __init__(self, instr: int, type: str):
-        self.rd = (instr & RD_MASK) >> 7
-        self.rs1 = (instr & RS1_MASK) >> 15
-        self.rs2 = (instr & RS2_MASK) >> 20
+        self.rd = (instr & RD_MASK) >> RD_SHIFT
+        self.rs1 = (instr & RS1_MASK) >> RS1_SHIFT
+        self.rs2 = (instr & RS2_MASK) >> RS2_SHIFT
         self.imm = decode(instr, type)

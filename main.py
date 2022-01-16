@@ -43,7 +43,7 @@ def run_mc_file(file_path: str):
         print(e)
 
     # Program finished. Inspect the return register, a0.
-    a0 = runner.registers[10]
+    a0 = runner.get_register(10)
     if a0 == 1:
         print("PASS: a0 = 1")
     else:
