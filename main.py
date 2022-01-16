@@ -62,7 +62,7 @@ def main():
         "rv_tests/rv32ui-v-srl.mc",
         "rv_tests/rv32ui-v-sw.mc",
         "rv_tests/rv32ui-v-xor.mc",
-        "rv_tests/rv32ui-v-rem.mc",
+        "rv_tests/rv32um-v-rem.mc",
     ]
 
     for filename in mc_files:

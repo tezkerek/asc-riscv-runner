@@ -1,3 +1,4 @@
+import math
 from typing import List, Tuple, Callable, Any
 from instruction import Instruction, OPCODE_MASK, FUNCT3_MASK, FUNCT7_MASK
 from utils import logical_rshift
@@ -120,6 +121,9 @@ class RiscVRunner:
             if funct3 == 0b101:
                 if funct7 == 0b0000000:
                     return self.srl, "R"
+            if funct3 == 0b110:
+                if funct7 == 0b0000001:
+                    return self.rem, "R"
 
         print(
             f"Instruction not implemented: opcode {opcode:0>7b}, funct3 {funct3:0>3b}, funct7 {funct7:0>7b}."
@@ -193,3 +197,18 @@ class RiscVRunner:
         self.registers[instr.rd] = logical_rshift(
             self.registers[instr.rs1], shift_amount
         )
+
+    def rem(self, instr: Instruction):
+        dividend = self.registers[instr.rs1]
+        divisor = self.registers[instr.rs2]
+
+        if dividend == -2**31 and divisor == -1:
+            # Handle signed overflow
+            remainder = 0
+        elif divisor == 0:
+            # Handle division by zero
+            remainder = dividend
+        else:
+            remainder = int(math.fmod(dividend, divisor))
+
+        self.registers[instr.rd] = remainder
