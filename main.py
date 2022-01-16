@@ -1,12 +1,13 @@
 import re
+import os
 from runner import RiscVRunner
 
 mc_label_regex = re.compile(r"^([0-9a-fA-F]{8}) <([a-zA-Z_]+)>:$")
 mc_instruction_regex = re.compile(r"^([0-9a-fA-F]{8}):\t([0-9a-fA-F]+)$")
 
 
-def run_mc_file(filename: str):
-    with open(filename) as f:
+def run_mc_file(file_path: str):
+    with open(file_path) as f:
         # Skip first line
         f.readline()
 
@@ -26,7 +27,8 @@ def run_mc_file(filename: str):
                 supposed_next_addr = addr + len(instr)
 
         # Run the program
-        print(f"======== {filename} ========")
+        filename = os.path.basename(file_path)
+        print("========", (filename + " ").ljust(24, "="))
 
         runner = RiscVRunner(program_bytes)
         runner.run()
