@@ -90,6 +90,9 @@ def decode_J_type_imm(instr: int) -> int:
 
 
 def decode(instr: int, type: str):
+    if type == "R":
+        # R-type does not encode an immediate
+        return 0
     if type == "I":
         return decode_I_type_imm(instr)
     if type == "U":

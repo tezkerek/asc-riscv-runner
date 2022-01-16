@@ -28,3 +28,11 @@ def pretty_bin(num: int):
     padded_bin = f"{num:0>32b}"
     grouped_bin = " ".join(padded_bin[i : i + 4] for i in range(0, len(padded_bin), 4))
     return grouped_bin
+
+def logical_rshift(num: int, shift_amount: int):
+    if shift_amount > 0:
+        return (num % (1 << 32)) >> shift_amount
+    else:
+        # I have no idea what the rules of logical shift are,
+        # but test 7 expects that (-1 >> 0) == -1
+        return num

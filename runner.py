@@ -1,5 +1,6 @@
 from typing import List, Tuple, Callable, Any
 from instruction import Instruction, OPCODE_MASK, FUNCT3_MASK, FUNCT7_MASK
+from utils import logical_rshift
 
 
 class RiscVRunner:
@@ -96,6 +97,10 @@ class RiscVRunner:
             return self.lui, "U"
         if opcode == 0b0010111:
             return self.auipc, "U"
+        if opcode == 0b0110011:
+            if funct3 == 0b101:
+                if funct7 == 0b0000000:
+                    return self.srl, "R"
 
         print(
             f"Instruction not implemented: opcode {opcode:0>7b}, funct3 {funct3:0>3b}, funct7 {funct7:0>7b}."
@@ -150,3 +155,8 @@ class RiscVRunner:
         # Bottom 12 bits are zeroed
         # 32-bit imm is added to pc and stored in rd
         self.registers[instr.rd] = self.program_counter + (instr.imm << 12)
+
+    def srl(self, instr: Instruction):
+        # Only consider the lower 5 bits of rs2
+        shift_amount = self.registers[instr.rs2] & 0x1F
+        self.registers[instr.rd] = logical_rshift(self.registers[instr.rs1], shift_amount)
