@@ -13,6 +13,10 @@ IMM_VALS = {
         "mask": 0xFFF00000,
         "shift": 20,
     },
+    "S": {
+        "mask": (0xFE000000, 0xF80),
+        "shift": (25, 7),
+    },
     "B": {
         "mask": (0x80000000, 0x7E000000, 0xF00, 0x80),
         "shift": (31, 25, 8, 7),
@@ -31,6 +35,20 @@ IMM_VALS = {
 def decode_I_type_imm(instr: int) -> int:
     v = IMM_VALS["I"]
     unsigned = (instr & v["mask"]) >> v["shift"]
+    return signed_bin_to_dec(unsigned, 12)
+
+
+def decode_S_type_imm(instr: int) -> int:
+    masks = IMM_VALS["S"]["mask"]
+    shifts = IMM_VALS["S"]["shift"]
+    # S-format has imm[0:11] split in 2 parts: imm[11:5], imm[4:0]
+    imm_parts = (
+        (instr & masks[0]) >> shifts[0],  # imm[11:5]
+        (instr & masks[1]) >> shifts[1],  # imm[4:0]
+    )
+
+    unsigned = imm_parts[1] + (imm_parts[0] << 5)
+
     return signed_bin_to_dec(unsigned, 12)
 
 
@@ -95,6 +113,8 @@ def decode(instr: int, type: str):
         return 0
     if type == "I":
         return decode_I_type_imm(instr)
+    if type == "S":
+        return decode_S_type_imm(instr)
     if type == "U":
         return decode_U_type_imm(instr)
     if type == "B":
